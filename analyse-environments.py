@@ -53,35 +53,70 @@ class AggregateDictionary(object):
 			output.write("</ul></p>")
 				
 
+class KeyComparator(object):
+	def __init__(self,  all_environments, dictionaries):
+		self.all_environments = all_environments
+		self.dictionaries = dictionaries
+
+		self.key = None
+		self.env = None
+		self.match_count = 0
+		self.percentage = 0
+		self.matching_environments = set()
+
+	def set_key_and_environment(self, key, env):
+		self.key = key
+		self.env = env
+		self.compare()
+
+	def compare(self):
+		self.match_count = 0
+		self.percentage = 0
+		self.matching_environments = set()
+		for other_env in self.all_environments:
+			left_value = self.dictionaries[self.env].value(self.key)
+			right_value = self.dictionaries[other_env].value(self.key)
+			if self.env != other_env and left_value == right_value:
+				self.match_count += 1
+				self.matching_environments.add(other_env)
+		self.percentage = int (self.match_count * 100.0 / (len(self.all_environments) - 1))
+
+	def color(self):
+		point = collections.namedtuple('Color', ['background', 'foreground'])
+		if self.percentage == 0:
+			result = point("green", "white")
+		elif self.percentage == 100:
+			result = point("orange", "black")
+		else:
+			result = point("red", "white")
+		return result
+
+	def analytic(self):
+		if self.percentage == 0:
+			result = 'different from all other environments'
+		elif self.percentage == 100:
+			result = 'same in all environments'
+		else:
+			result = "value in %s is the same as in " % self.env
+			for n, env in enumerate(self.matching_environments):
+				if n == len(self.matching_environments):
+					result += 'and '
+				elif n != 0:
+					result += ', '
+				result += env
+		return result
+
 
 class EnvironmentComparator(object):
 	def __init__(self):
 		self.dictionaries = {}
 		self.keys = set()
 		self.environments = []
-		self.reference = None
-		self.overview = {}
 
 	def add(self, dictionary):
 		self.dictionaries[dictionary.short_name] = dictionary
 		self.keys = self.keys.union(dictionary.keys())
 		self.environments.append(dictionary.short_name)
-		#self.environments.add(dictionary.short_name)
-		if not self.reference:
-			self.reference = dictionary.short_name
-
-	def analyze(self):
-		for key in self.keys:
-			env_compare_result = {}
-			for env in self.environments:
-				compare_result = {}
-				for other_env in self.environments:
-					if env != other_env:
-						left_value = self.dictionaries[env].value(key)
-						right_value = self.dictionaries[other_env].value(key)
-						compare_result[other_env] = (left_value == right_value)
-				env_compare_result[env] = compare_result
-			self.overview[key] = env_compare_result
 
 	def html_report(self, output):
 		output.write("<html><head><title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
@@ -92,34 +127,13 @@ class EnvironmentComparator(object):
 			output.write('<td>%s</td>' % env)
 		output.write('</tr>\n')
 
+		key_comparator = KeyComparator(self.environments, self.dictionaries)
 		for key in sorted(self.keys):
 			output.write('<tr><td>%s</td>' % key)
 			for env in self.environments:
-				same_as = set()
-				for other_env in self.environments:
-					if env != other_env:
-						if self.overview[key][env][other_env]:
-							same_as.add(other_env)
-				if len(same_as) == 0:
-					bgcolor = 'green'
-					fgcolor = 'white'
-					content = 'different from all other environments'
-				elif len(same_as) == len(self.environments)-1:
-					bgcolor = 'orange'
-					fgcolor = 'black'
-					content = 'same in all environments'
-				else:
-					bgcolor = 'red'
-					fgcolor = 'white'
-					content = "value in %s is the same as in " % env
-					for n, env in enumerate(same_as):
-						if n == len(same_as):
-							content += 'and '
-						elif n != 0:
-							content += ', '
-						content += env
-
-				output.write('<td align="center" style="color:%s; background-color:%s;">%s</br>%s</td>' % (fgcolor, bgcolor, content, self.dictionaries[env].value(key)))
+				key_comparator.set_key_and_environment(key,env)
+				color = key_comparator.color()
+				output.write('<td align="center" style="color:%s; background-color:%s;">%s</br>%s</td>' % (color.foreground, color.background, key_comparator.analytic(), self.dictionaries[env].value(key)))
 			output.write('</tr>\n')
 		output.write('</table>\n')
 		for name in self.dictionaries:
@@ -157,8 +171,6 @@ def main():
 		dictionary = AggregateDictionary(entry)
 		dictionary.load()
 		comparator.add(dictionary)
-
-	comparator.analyze()
 
 	output = open(str(filename), 'w') if filename else sys.stdout
 	comparator.html_report(output)
