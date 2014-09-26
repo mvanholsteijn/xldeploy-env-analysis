@@ -63,11 +63,18 @@ class KeyComparator(object):
 		self.match_count = 0
 		self.percentage = 0
 		self.matching_environments = set()
+		self.total_match_count = 0
 
 	def set_key_and_environment(self, key, env):
 		self.key = key
 		self.env = env
-		self.compare()
+		if self.key and self.env:
+			self.compare()
+
+	def set_environment(self, env):
+		self.env = env
+		if self.key and self.env:
+			self.compare()
 
 	def compare(self):
 		self.match_count = 0
@@ -81,15 +88,18 @@ class KeyComparator(object):
 				self.matching_environments.add(other_env)
 		self.percentage = int (self.match_count * 100.0 / (len(self.all_environments) - 1))
 
-	def color(self):
+	def color_for_percentage(self, percentage):
 		point = collections.namedtuple('Color', ['background', 'foreground'])
-		if self.percentage == 0:
+		if percentage == 0:
 			result = point("green", "white")
-		elif self.percentage == 100:
+		elif percentage == 100:
 			result = point("orange", "black")
 		else:
 			result = point("red", "white")
 		return result
+
+	def color(self):
+		return self.color_for_percentage(self.percentage)
 
 	def analytic(self):
 		if self.percentage == 0:
@@ -105,6 +115,17 @@ class KeyComparator(object):
 					result += ', '
 				result += env
 		return result
+
+	def key_color(self, key):
+		self.key = key
+		self.total_match_count = 0
+
+		for env in self.all_environments:
+			self.set_environment(env)
+			self.total_match_count += self.match_count
+		self.total_percentage = int (self.total_match_count * 100.0 / (len(self.all_environments) * (len(self.all_environments) - 1)))
+
+		return self.color_for_percentage(self.total_percentage)
 
 
 class EnvironmentComparator(object):
@@ -129,7 +150,8 @@ class EnvironmentComparator(object):
 
 		key_comparator = KeyComparator(self.environments, self.dictionaries)
 		for key in sorted(self.keys):
-			output.write('<tr><td>%s</td>' % key)
+			color = key_comparator.key_color(key)
+			output.write('<tr><td style="color:%s; background-color:%s;">%s</td>' % (color.foreground, color.background, key))
 			for env in self.environments:
 				key_comparator.set_key_and_environment(key,env)
 				color = key_comparator.color()
@@ -175,7 +197,7 @@ def main():
 	output = open(str(filename), 'w') if filename else sys.stdout
 	comparator.html_report(output)
 	if filename: 
-		print 'Report written to %s' % filename.canonicalPath
+		print 'INFO: Report written to %s' % filename.canonicalPath
 		output.close() 
 
 main()
