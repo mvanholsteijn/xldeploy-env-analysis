@@ -1,4 +1,4 @@
-# Analyzer of differences between properties in different environments in the XL Deploy repository.
+# Analyze of differences between properties in different environments in the XL Deploy repository.
 # see README.md for details.
 # author: Mark van Holsteijn
 from java.io import File
@@ -133,11 +133,15 @@ class EnvironmentComparator(object):
 		self.dictionaries = {}
 		self.keys = set()
 		self.environments = []
+		self.values_only = False
 
 	def add(self, dictionary):
 		self.dictionaries[dictionary.short_name] = dictionary
 		self.keys = self.keys.union(dictionary.keys())
 		self.environments.append(dictionary.short_name)
+
+	def set_values_only(self, values_only):
+		self.values_only = values_only
 
 	def html_report(self, output):
 		output.write("<html><head><title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
@@ -155,7 +159,9 @@ class EnvironmentComparator(object):
 			for env in self.environments:
 				key_comparator.set_key_and_environment(key,env)
 				color = key_comparator.color()
-				output.write('<td align="center" style="color:%s; background-color:%s;">%s</br>%s</td>' % (color.foreground, color.background, key_comparator.analytic(), self.dictionaries[env].value(key)))
+				analytic = (key_comparator.analytic() + '</br>') if not self.values_only else ""
+				value = self.dictionaries[env].value(key)
+				output.write('<td align="center" style="color:%s; background-color:%s;">%s%s</td>' % (color.foreground, color.background, analytic, value))
 			output.write('</tr>\n')
 		output.write('</table>\n')
 		for name in self.dictionaries:
@@ -172,18 +178,21 @@ def usage():
 	
 def main():
 	filename = None
+	values_only = False
 	comparator = EnvironmentComparator()
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], 'o:', ['output='])
+		opts, args = getopt.getopt(sys.argv[1:], 'o:v', ['output=', 'valuesonly'])
 	except getopt.GetoptError, err:
 		usage()
 		print str(err)
 		sys.exit(2)
 
 	for option, argument in opts:
-		if option in ('-o', '-output'):
+		if option in ('-o', '--output'):
 			filename = File(argument)
+		elif option in ('-v', '--valuesonly'):
+			values_only = True
 
 	if len(args) < 2:
 		usage()
@@ -195,6 +204,7 @@ def main():
 		comparator.add(dictionary)
 
 	output = open(str(filename), 'w') if filename else sys.stdout
+	comparator.set_values_only(values_only)
 	comparator.html_report(output)
 	if filename: 
 		print 'INFO: Report written to %s' % filename.canonicalPath
