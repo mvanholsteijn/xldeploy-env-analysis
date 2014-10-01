@@ -32,7 +32,7 @@ class AggregateDictionary(object):
 					diagnostic = "ERROR: definition of %s both defined in %s and in %s\n" % (entry.key, name, existing_keys[entry.key])
 					sys.stderr.write(diagnostic)
 					sys.stderr.flush()
-					self.diagnostics.add(diagnostic)
+					self.diagnostics.append(diagnostic)
 					
 
 	def keys(self):
@@ -153,6 +153,9 @@ class EnvironmentComparator(object):
 		output.write('</tr>\n')
 
 		key_comparator = KeyComparator(self.environments, self.dictionaries)
+		same_key_count = {}
+		for env in self.environments:
+			same_key_count[env] = 0
 		for key in sorted(self.keys):
 			color = key_comparator.key_color(key)
 			output.write('<tr><td style="color:%s; background-color:%s;">%s</td>' % (color.foreground, color.background, key))
@@ -162,8 +165,14 @@ class EnvironmentComparator(object):
 				analytic = (key_comparator.analytic() + '</br>') if not self.values_only else ""
 				value = self.dictionaries[env].value(key)
 				output.write('<td align="center" style="color:%s; background-color:%s;">%s%s</td>' % (color.foreground, color.background, analytic, value))
+				if key_comparator.percentage == 0:
+					same_key_count[env] += 1
 			output.write('</tr>\n')
-		output.write('</table>\n')
+		output.write('<tr><td>discriminate ratio</td>')
+		for env in self.environments:
+			output.write('<td align="center">%d%%</td>' % (int(same_key_count[env] * 100.0 / len(self.keys))))
+			 
+		output.write('</tr></table>\n')
 		for name in self.dictionaries:
 			self.dictionaries[name].html_report(output)
 		output.write('</body></html>\n')
@@ -199,6 +208,8 @@ def main():
 		sys.exit(2)
 		
 	for entry in args:
+		sys.stderr.write("INFO: Loading dictionary for %s\n" % entry)
+		sys.stderr.flush()
 		dictionary = AggregateDictionary(entry)
 		dictionary.load()
 		comparator.add(dictionary)
