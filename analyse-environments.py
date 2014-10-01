@@ -8,6 +8,10 @@ import sys
 import collections
 import datetime
 
+def escape(html):
+	"""Returns the given HTML with ampersands, quotes and carets encoded."""
+	return html.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;') if html != None else None
+
 # A dictionary with all dictionaries from an Deployit environment.
 #
 class AggregateDictionary(object):
@@ -47,10 +51,10 @@ class AggregateDictionary(object):
 
 	def html_report(self, output):
 		if len(self.diagnostics) != 0:
-			output.write("<p>Diagnostics from environment %s<ul>" % self.short_name)
+			output.write("<p>Diagnostics from environment %s</p><ul>" % self.short_name)
 			for diagnostic in self.diagnostics:
 				output.write("<li>%s</li>" % diagnostic)
-			output.write("</ul></p>")
+			output.write("</ul>")
 				
 
 class KeyComparator(object):
@@ -144,9 +148,11 @@ class EnvironmentComparator(object):
 		self.values_only = values_only
 
 	def html_report(self, output):
-		output.write("<html><head><title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
+		output.write('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
+		output.write('<html xmlns="http://www.w3.org/1999/xhtml">')
+		output.write("<head><title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
 		output.write("<p>Total of %d different keys found in %d environments</p>" % (len(self.keys), len(self.environments)))
-		output.write('<table><tr>')
+		output.write('<table summary="key value environment overview"><tr>')
 		output.write('<td>key</td>')
 		for env in self.environments:
 			output.write('<td>%s</td>' % env)
@@ -163,7 +169,7 @@ class EnvironmentComparator(object):
 				key_comparator.set_key_and_environment(key,env)
 				color = key_comparator.color()
 				analytic = (key_comparator.analytic() + '</br>') if not self.values_only else ""
-				value = self.dictionaries[env].value(key)
+				value = escape(self.dictionaries[env].value(key))
 				output.write('<td align="center" style="color:%s; background-color:%s;">%s%s</td>' % (color.foreground, color.background, analytic, value))
 				if key_comparator.percentage == 0:
 					same_key_count[env] += 1
