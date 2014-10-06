@@ -15,17 +15,21 @@ def escape(html):
 # A dictionary with all dictionaries from an Deployit environment.
 #
 class AggregateDictionary(object):
-	def __init__(self, full_name):
+	def __init__(self, full_name, exclude_pattern=None):
 		self.full_name = full_name
 		parts = re.compile('/').split(full_name)
 		self.short_name = parts[len(parts)-1]
 		self.values = {}
 		self.diagnostics = []
+		self.exclude_pattern = exclude_pattern
 
 	def load(self):
 		self.values = {}
 		existing_keys = {}
-		dictionary_entries = repository.search('udm.Dictionary', self.full_name)
+		dictionary_entries = filter(lambda name: 
+			self.exclude_pattern == None or not self.exclude_pattern.search(name), 
+			repository.search('udm.Dictionary', self.full_name))
+
 		for name in dictionary_entries:
 			dictionary = repository.read(name)
 			for entry in dictionary.entries.entrySet():
@@ -200,10 +204,11 @@ def usage():
 def main():
 	filename = None
 	values_only = False
+	exclude_pattern = None
 	comparator = EnvironmentComparator()
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], 'o:v', ['output=', 'valuesonly'])
+		opts, args = getopt.getopt(sys.argv[1:], 'o:ve:', ['output=', 'valuesonly', 'excludepattern='])
 	except getopt.GetoptError, err:
 		usage()
 		print str(err)
@@ -214,6 +219,8 @@ def main():
 			filename = File(argument)
 		elif option in ('-v', '--valuesonly'):
 			values_only = True
+		elif option in ('-e', '--excludepattern'):
+			exclude_pattern = re.compile(argument)
 
 	if len(args) < 2:
 		usage()
@@ -222,7 +229,7 @@ def main():
 	for entry in args:
 		sys.stderr.write("INFO: Loading dictionary for %s\n" % entry)
 		sys.stderr.flush()
-		dictionary = AggregateDictionary(entry)
+		dictionary = AggregateDictionary(entry, exclude_pattern)
 		dictionary.load()
 		comparator.add(dictionary)
 
