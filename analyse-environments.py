@@ -148,9 +148,15 @@ class EnvironmentComparator(object):
 		self.values_only = values_only
 
 	def html_report(self, output):
-		output.write('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
-		output.write('<html xmlns="http://www.w3.org/1999/xhtml">')
-		output.write("<head><title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
+		output.write(
+			'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n'
+			'<html xmlns="http://www.w3.org/1999/xhtml">\n'
+			'<head>'
+			'<style type="text/css">\n'
+			'table {  border: 1px; }\n'
+			'td { text-align: center; border: 1px solid; }\n'
+			'</style>')
+		output.write("<title>XLDeploy environment analysis dated %s</title></head><body>\n" % str(datetime.date.today()))
 		output.write("<p>Total of %d different keys found in %d environments</p>" % (len(self.keys), len(self.environments)))
 		output.write('<table summary="key value environment overview"><tr>')
 		output.write('<td>key</td>')
@@ -164,19 +170,19 @@ class EnvironmentComparator(object):
 			same_key_count[env] = 0
 		for key in sorted(self.keys):
 			color = key_comparator.key_color(key)
-			output.write('<tr><td style="color:%s; background-color:%s;">%s</td>' % (color.foreground, color.background, key))
+			output.write('<tr><td style="text-align:left; color:%s; background-color:%s;">%s</td>' % (color.foreground, color.background, key))
 			for env in self.environments:
 				key_comparator.set_key_and_environment(key,env)
 				color = key_comparator.color()
-				analytic = (key_comparator.analytic() + '</br>') if not self.values_only else ""
+				analytic = (key_comparator.analytic() + '<br/>') if not self.values_only else ""
 				value = escape(self.dictionaries[env].value(key))
-				output.write('<td align="center" style="color:%s; background-color:%s;">%s%s</td>' % (color.foreground, color.background, analytic, value))
+				output.write('<td style="color:%s; background-color:%s;">%s%s</td>' % (color.foreground, color.background, analytic, value))
 				if key_comparator.percentage == 0:
 					same_key_count[env] += 1
 			output.write('</tr>\n')
-		output.write('<tr><td>discriminate ratio</td>')
+		output.write('<tr><td style="{text-align:left;}">discriminate ratio</td>')
 		for env in self.environments:
-			output.write('<td align="center">%d%%</td>' % (int(same_key_count[env] * 100.0 / len(self.keys))))
+			output.write('<td>%d%%</td>' % (int(same_key_count[env] * 100.0 / len(self.keys))))
 			 
 		output.write('</tr></table>\n')
 		for name in self.dictionaries:
